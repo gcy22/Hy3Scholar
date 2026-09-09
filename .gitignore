@@ -1,0 +1,14 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+data/
+results/
+test/
+dataset_v0/
+literature_results/
+evaluation_results/
+*.log

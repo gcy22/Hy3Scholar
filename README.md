@@ -1,52 +1,212 @@
 # Hy3Scholar
 
-> Trustworthy Literature Review Generation and Evaluation with Hy3
+Hy3Scholar 是一个可运行的研究原型：上传多篇 PDF，围绕研究问题调用腾讯 Hy3
+生成带证据编号的结构化综述，再执行 Claim 级事实/引用核验、反向内容覆盖审计、
+七维可信评价和 Judge 对抗校准。
 
-Hy3Scholar 是一个面向开放式学术任务的多论文文献综述生成与可信评估项目。系统以 Hy3 为核心模型，在生成结构化综述的同时，基于原始论文证据检查事实、引用、内容覆盖和逻辑质量，使评价结果可解释、可追溯。
+这不是“让模型凭记忆给综述打分”的薄封装。所有事实判断都以本地 PDF 中的
+`evidence_id`（例如 `P001:p3:c2`）为锚点，最终输出 Claim、原始证据位置、判定、
+置信度和多维得分。
 
-> 当前状态：方案设计与原型开发阶段。
+项目同时提供 Dataset v0 构建闭环：Hy3 规划检索词并可调用 TokenHub 联网搜索，
+OpenAlex/Crossref/arXiv 返回可追溯元数据，系统只下载明确开放获取的 PDF，再由 Hy3
+基于原文 Evidence 构造标准样本、难例和反例。所有机器样本默认 `pending`，人工批准后
+才进入正式批量评测。
 
-## 项目目标
+## 方法依据
 
-传统文本相似度指标难以评价不存在唯一标准答案的文献综述，而大语言模型生成内容还可能存在事实偏差、引用错配、关键文献遗漏和学术幻觉。Hy3Scholar 希望建立“可信生成—证据核验—可信评价—评价校准”的完整闭环，回答三个核心问题：
+实现前核对了以下论文和官方资料；详细的论文—代码映射见
+[`docs/research_basis.md`](docs/research_basis.md)。
 
-- 综述中的论述是否正确？
-- 引用的论文是否真正支持对应论述？
-- 原始论文中的关键信息是否被充分覆盖？
+- OpenScholar：领域检索、引用感知生成、自反馈改写。
+- DeepResearch Bench：RACE 自适应维度权重与 FACT 引用准确性/有效引用评价。
+- ReportBench：将长报告拆成 Statement/Claim，分别验证带引用和无引用事实。
+- CALM（Justice or Prejudice?）：用表面扰动与事实扰动检查 LLM Judge 偏差。
+- 腾讯 Hy3 官方仓库与 TokenHub 文档：`hy3` 模型名、OpenAI Chat Completions
+  兼容接口，以及 `no_think` / `low` / `high` 推理强度。
+- Self-Instruct 与 HaluEval：模型生成候选数据、自动过滤、难负例和人工审核。
 
-## 核心流程
+## 系统流程
 
-1. **文献解析与证据库构建**：解析多篇 PDF，保留论文编号、章节、页码和文本块等元数据。
-2. **证据增强综述生成**：根据研究问题检索相关证据，由 Hy3 完成多论文理解、归纳、比较和结构化综述生成。
-3. **Claim-Citation 映射**：建立综述论述、引用论文与原始证据片段之间的对应关系。
-4. **双向证据核验**：通过 `Claim → Evidence` 验证事实与引用，通过 `Evidence → Review` 审计关键内容是否遗漏。
-5. **多维可信评估**：由多个 Specialized Hy3 Evaluators 按结构化 Rubric 分工评价，并输出具体错误及证据依据。
-6. **评估器可靠性验证**：利用人工一致性、质量分层和对抗扰动实验，检验自动评价结果本身是否可靠。
+```text
+PDFs
+  -> page/section-aware chunks + evidence_id
+  -> Chinese/English BM25 Evidence Database
+  -> Hy3 citation-aware generation
+  -> Hy3 self-feedback refinement
+  -> atomic Claim extraction
+  -> Claim -> Evidence verification
+  -> Evidence -> Review coverage audit
+  -> 7 specialized Hy3 evaluators + adaptive weights
+  -> evidence-constrained aggregation
+  -> adversarial Judge calibration
+```
 
-## 评估维度
+七个评价维度为：`factual_accuracy`、`citation_faithfulness`、
+`citation_completeness`、`coverage`、`comparative_depth`、
+`logical_coherence` 和 `academic_integrity`。
 
-| 维度 | 关注内容 |
-| --- | --- |
-| Factual Accuracy | 对论文方法、实验和结论的描述是否符合原文 |
-| Citation Faithfulness | 引用论文是否真正支持对应论述 |
-| Citation Completeness | 需要证据支撑的观点是否提供合理引用 |
-| Coverage | 是否覆盖关键方法、结果和研究路线 |
-| Comparative Depth | 是否形成跨论文比较，而非简单逐篇摘要 |
-| Logical Coherence | 综述结构、观点组织和前后逻辑是否合理 |
-| Academic Integrity | 是否存在虚构方法、伪造结果或引用幻觉 |
+事实、引用和覆盖三类分数不是完全采用 Judge 的主观分数，而是将结构化 Judge
+结果与可计算的 Claim/证据统计按 40%/60% 融合，以减弱篇幅、术语和语气偏差。
 
-## 核心特点
+## 安装
 
-- **生成与评价解耦**：避免直接由生成过程代替质量判断。
-- **双向证据追溯**：同时检查“写出的内容是否正确”和“重要内容是否遗漏”。
-- **不确定性感知的分层评估**：仅对证据冲突、语义复杂或低置信度 Claim 触发更深层检索与交叉验证。
-- **Claim 级可解释报告**：定位具体问题、错误类型、引用核查结果及原始证据位置。
-- **对抗式 Judge 校准**：通过篇幅膨胀、术语堆砌、引用替换和数据篡改等扰动测试评价鲁棒性。
+需要 Python 3.11+。
 
-## 预期成果
+```powershell
+cd E:\HIT\腾讯犀牛鸟\code
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+Copy-Item .env.example .env
+```
 
-项目计划交付一个可运行的 Hy3Scholar 原型，实现从多论文上传、研究问题输入和证据检索，到综述生成、可信评估与证据追溯的完整流程。最终输出包括结构化文献综述、总体及分维度评分、Claim 级错误定位、引用核查结果、内容遗漏提示和原始论文证据位置。
+编辑 `.env` 或直接设置环境变量：
 
-## 项目文档
+```powershell
+$env:HY3_API_KEY = "你的 TokenHub API Key"
+$env:HY3_BASE_URL = "https://tokenhub.tencentmaas.com/v1"
+$env:HY3_MODEL = "hy3"
+```
 
-- [项目方案书](./项目方案书.docx)
+密钥只从环境变量读取；`.env` 已被 `.gitignore` 排除。中国大陆 TokenHub 默认
+Base URL 为 `https://tokenhub.tencentmaas.com/v1`。若使用本地 vLLM/SGLang：
+
+```powershell
+$env:HY3_BASE_URL = "http://127.0.0.1:8000/v1"
+$env:HY3_API_KEY = "EMPTY"
+```
+
+## 命令行
+
+先构建本地证据库：
+
+```powershell
+hy3scholar ingest .\papers\paper1.pdf .\papers\paper2.pdf
+```
+
+记录输出的 `workspace_id`，再执行完整流程：
+
+```powershell
+hy3scholar run `
+  --workspace YOUR_WORKSPACE_ID `
+  --question "比较这些论文的主要方法、实验结果与局限"
+```
+
+结果保存在 `data/<workspace_id>/results/`：
+
+- `review.md`：带证据编号的综述；
+- `evaluation.md`：可读的可信评估报告；
+- `latest.json`：包含 Claim、证据、覆盖和维度分数的完整结构化结果。
+
+也可以评估已有综述：
+
+```powershell
+hy3scholar evaluate `
+  --workspace YOUR_WORKSPACE_ID `
+  --question "研究问题" `
+  --review .\existing_review.md
+```
+
+## Dataset v0
+
+如需调用 Hy3 联网搜索，请先在 TokenHub 的“平台管理 → 工具管理”中开通搜索服务。
+默认使用 `lite`。OpenAlex 小规模查询可以匿名运行，建议申请免费 Key 并配置联系邮箱：
+
+```dotenv
+HY3_WEB_SEARCH_SOURCE=lite
+OPENALEX_API_KEY=
+OPENALEX_MAILTO=you@example.com
+CROSSREF_MAILTO=you@example.com
+HY3SCHOLAR_MAX_DOWNLOADS=10
+```
+
+先检索三个正规来源并查看候选论文：
+
+```powershell
+hy3scholar literature-search `
+  --query "LLM agent memory evaluation" `
+  --limit 10 `
+  --output .\literature_results
+```
+
+加 `--download` 时只下载带明确开放获取位置的 PDF。下载器会阻止本机/内网 URL，手动
+检查每次重定向，并验证 PDF 魔数、文件大小、页数、可提取文本和 SHA-256。遇到登录、
+付费墙、验证码、Cloudflare 或出版商机器人检查时停止，不尝试绕过。
+
+构建包含三种业务用例、难例和反例的 Dataset：
+
+```powershell
+hy3scholar dataset-build `
+  --topic "LLM agent memory and self-evolving context" `
+  --papers 6 `
+  --cases 12 `
+  --output .\dataset_v0
+```
+
+输出包括 `cases.jsonl`、`annotations.jsonl`、`papers.jsonl`、
+`discovered_papers.jsonl`、`download_manifest.jsonl`、`web_sources.jsonl`、
+`generation_output.json`、`generation_audit.json`、`workspace.json`、
+`build_report.json`、`DATASET_CARD.md` 和通过校验的开放 PDF。
+
+人工审核与正式批量评测：
+
+```powershell
+streamlit run dataset_review_app.py
+hy3scholar dataset-validate --dataset .\dataset_v0
+hy3scholar dataset-evaluate `
+  --dataset .\dataset_v0 `
+  --output .\evaluation_results
+```
+
+评测输出 `predictions.jsonl`、`scores.csv`、`failure_cases.jsonl` 和 `report.md`。
+调试阶段可以加 `--allow-pending`，但未审核样本的结果不能作为正式结论。完整方法见
+[`docs/dataset_v0_method.md`](docs/dataset_v0_method.md)。
+
+## Web 界面与 API
+
+Streamlit：
+
+```powershell
+streamlit run streamlit_app.py
+```
+
+FastAPI：
+
+```powershell
+uvicorn hy3scholar.api:app --reload
+```
+
+主要接口：
+
+- `POST /workspaces`：上传一个或多个 PDF；
+- `POST /workspaces/{id}/run`：生成并评价综述；
+- `POST /workspaces/{id}/evaluate`：评价已有 Markdown；
+- `POST /workspaces/{id}/adversarial-test`：Judge 对抗校准；
+- `GET /health`：检查服务和 API Key 配置状态。
+
+Swagger UI 位于 `http://127.0.0.1:8000/docs`。
+
+## 验证
+
+```powershell
+pytest
+```
+
+测试使用确定性的 Fake Hy3，不消耗 API 配额。真实联调需要配置 API Key 后再运行
+命令行或 Web 界面。
+
+## 已知边界
+
+- 当前证据检索是无需额外模型下载的中英文 BM25 基线；接口已将检索层隔离，后续可
+  接入向量模型与神经重排序器。它复现 OpenScholar 的“先检索、后证据约束生成”原则，
+  但不声称复现其 4500 万论文数据仓库或训练过的专用 retriever。
+- 扫描型 PDF 需要先做 OCR；系统会对无可提取文本的 PDF 明确报错。
+- 自动评分必须通过人工一致性实验校准后才能作为研究结论，不能把单次 LLM Judge
+  分数当作金标准。
+- Hy3 联网搜索只作为网页发现来源；DOI、作者、年份和 OA 状态仍由
+  OpenAlex/Crossref/arXiv 结构化记录核对。
+- Crossref 的 PDF 链接只有同时存在明确 Creative Commons 许可时才会进入自动下载。
+- 默认批次为 5–10 篇，程序硬限制最多 20 篇，不支持整刊或无限关键词批量下载。
+- 没有 API Key 时仍可完成 PDF 解析和证据库构建，但 Hy3 生成/评价会停止并给出明确
+  配置错误。
