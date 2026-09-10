@@ -53,13 +53,6 @@ PDFs
 
 需要 Python 3.11+。
 
-```powershell
-cd E:\HIT\腾讯犀牛鸟\code
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
-Copy-Item .env.example .env
-```
 
 编辑 `.env` 或直接设置环境变量：
 
