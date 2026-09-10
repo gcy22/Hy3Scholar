@@ -62,13 +62,6 @@ $env:HY3_BASE_URL = "https://tokenhub.tencentmaas.com/v1"
 $env:HY3_MODEL = "hy3"
 ```
 
-密钥只从环境变量读取；`.env` 已被 `.gitignore` 排除。中国大陆 TokenHub 默认
-Base URL 为 `https://tokenhub.tencentmaas.com/v1`。若使用本地 vLLM/SGLang：
-
-```powershell
-$env:HY3_BASE_URL = "http://127.0.0.1:8000/v1"
-$env:HY3_API_KEY = "EMPTY"
-```
 
 ## 命令行
 
