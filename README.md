@@ -53,6 +53,13 @@ PDFs
 
 需要 Python 3.11+。
 
+```powershell
+cd path\to\Hy3Scholar
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+Copy-Item .env.example .env
+```
 
 编辑 `.env` 或直接设置环境变量：
 
@@ -62,6 +69,13 @@ $env:HY3_BASE_URL = "https://tokenhub.tencentmaas.com/v1"
 $env:HY3_MODEL = "hy3"
 ```
 
+密钥只从环境变量读取；`.env` 已被 `.gitignore` 排除。中国大陆 TokenHub 默认
+Base URL 为 `https://tokenhub.tencentmaas.com/v1`。若使用本地 vLLM/SGLang：
+
+```powershell
+$env:HY3_BASE_URL = "http://127.0.0.1:8000/v1"
+$env:HY3_API_KEY = "EMPTY"
+```
 
 ## 命令行
 
@@ -172,6 +186,29 @@ uvicorn hy3scholar.api:app --reload
 - `GET /health`：检查服务和 API Key 配置状态。
 
 Swagger UI 位于 `http://127.0.0.1:8000/docs`。
+
+## 两分钟视频 Demo
+
+已提供中文 1080p 功能演示与可重复构建脚本：
+
+[![观看 Hy3Scholar 两分钟功能 Demo](demo/Hy3Scholar_Demo_Cover.png)](demo/Hy3Scholar_功能演示_1080p.mp4)
+
+> 点击封面观看或下载 MP4。成片时长 1 分 53.85 秒，包含项目背景、技术原理和完整功能流程。
+
+- `demo/Hy3Scholar_功能演示_1080p.mp4`：最终成片；
+- `demo/Hy3Scholar_功能演示_中文字幕.srt`：独立字幕；
+- `demo/分镜与旁白.md`：分镜说明；
+- `demo/narration.json`：逐镜头旁白；
+- `demo/build_demo.ps1`：根据当前真实 Dataset 与评测结果重新生成。
+
+重新生成前安装 Demo 依赖，然后运行脚本：
+
+```powershell
+pip install -e ".[demo]"
+.\demo\build_demo.ps1
+```
+
+构建器会强制检查最终时长小于 120 秒，并输出 H.264/AAC、1920×1080、30 FPS MP4。
 
 ## 验证
 

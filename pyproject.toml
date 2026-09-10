@@ -23,6 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<9", "pytest-cov>=5,<7"]
+demo = ["imageio-ffmpeg>=0.6,<1", "pillow>=10,<13"]
 
 [project.scripts]
 hy3scholar = "hy3scholar.cli:main"
