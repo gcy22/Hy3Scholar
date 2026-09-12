@@ -195,11 +195,7 @@ Swagger UI 位于 `http://127.0.0.1:8000/docs`。
 
 > 点击封面观看或下载 MP4。成片时长 1 分 53.85 秒，包含项目背景、技术原理和完整功能流程。
 
-- `demo/Hy3Scholar_功能演示_1080p.mp4`：最终成片；
-- `demo/Hy3Scholar_功能演示_中文字幕.srt`：独立字幕；
-- `demo/分镜与旁白.md`：分镜说明；
-- `demo/narration.json`：逐镜头旁白；
-- `demo/build_demo.ps1`：根据当前真实 Dataset 与评测结果重新生成。
+
 
 重新生成前安装 Demo 依赖，然后运行脚本：
 
@@ -208,7 +204,6 @@ pip install -e ".[demo]"
 .\demo\build_demo.ps1
 ```
 
-构建器会强制检查最终时长小于 120 秒，并输出 H.264/AAC、1920×1080、30 FPS MP4。
 
 ## 验证
 
